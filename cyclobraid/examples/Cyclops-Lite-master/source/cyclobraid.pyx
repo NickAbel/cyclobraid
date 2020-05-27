@@ -7,19 +7,14 @@ cimport mpi4py.libmpi as libmpi
 import time
 import sys
 import os
-import pickle
 
 from spectral_toolbox_1D import SpectralToolbox
 from RSWE_exponential_integrator import ExponentialIntegrator
 from scipy.signal import gaussian
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import RSWE_direct
 import cyclops_base
 import numpy as np
 import cyclops_control
-
-#setup github to push this & 'sequentialized' cyclops lite to xbraid sandbox
 
 cdef struct _braid_Vector_struct:
     double* v1
@@ -35,9 +30,7 @@ ctypedef _braid_Vector_struct my_Vector
 
 cdef struct _braid_App_struct:
     int rank
-    int first_averaging_level
     int total_levels
-    double T0_coeff_lvl2
 
 ctypedef _braid_App_struct my_App
 ctypedef _braid_App_struct *braid_App
@@ -51,19 +44,19 @@ expInt = ExponentialIntegrator(control)
 st = SpectralToolbox(control['Nx'], control['Lx'])
 ICs = cyclops_base.h_init(control)
 
+# The averaging window parameters, T0 and M_bar, are initially set here
 if control['HMM_T0'] is None:
     control['HMM_T0'] = control['coarse_timestep']/(control['epsilon']**0.2)
 control['HMM_M_bar'] = max(25, int(80*control['HMM_T0']))
 
+# To recompute the averaging window parameter for multilevel, this function
+# can be called in my_step().
+# total_levels: The total number of levels in the solve
+# cur_level: The current level my_step() is on
+# alpha: A coefficient to scale parameters if desired.
 def recompute_T0_M(total_levels,cur_level,alpha):
-    if cur_level == 1:#2:
-        control['HMM_T0'] = control['coarse_timestep']/(control['epsilon']**0.2)
-        control['HMM_M_bar'] = max(25, int(80.*control['HMM_T0']))
-    elif cur_level == 2:
-        control['HMM_T0'] = control['coarse_timestep']/(control['epsilon']**0.2)
-        control['HMM_M_bar'] = max(25, int(80.*control['HMM_T0']))
-    else:
-        control['HMM_M_bar'] = max(25, int(80*control['HMM_T0']))
+    control['HMM_T0'] = control['coarse_timestep']/(control['epsilon']**0.2)
+    control['HMM_M_bar'] = max(25, int(80.*control['HMM_T0']))
 
 # dict to store N_bar for reuse
 dict_Nb = {}
@@ -141,68 +134,53 @@ cdef int my_step(braid_App app, braid_Vector ustop, braid_Vector fstop, braid_Ve
     if (HMM_METHOD):
         if level == 0:
             control['fine_timestep'] = tstop - tstart
-            recompute_T0_M(app.total_levels,level,app.T0_coeff_lvl2)
+            recompute_T0_M(app.total_levels,level,1.0)
             output = RSWE_direct.solve(control, expInt, st, state, solver = 'fine_propagator', realspace = False)
+
         elif level == 1:
             control['coarse_timestep'] = tstop - tstart
             control['index'] = index
-            recompute_T0_M(app.total_levels,level,app.T0_coeff_lvl2)
+            recompute_T0_M(app.total_levels,level,1.0)
             control['iter'] = iteration
+            output = RSWE_direct.solve(control, expInt, st, state, solver = 'coarse_propagator', realspace = False)
+
             #Alternately solve with T0, 2*T0 (for small F three-scale problem)
             #if (iteration == 0) or (iteration % 2 == 0):
             #    recompute_T0_M(app.total_levels,level,.32)
             #output = RSWE_direct.solve(control, expInt, st, state, solver = 'coarse_propagator', realspace = False)
+
             #Use dicts to skip N_bar computation on odd iterations
-
-
             #if (iteration % 2 != 0):
-            output = RSWE_direct.solve(control, expInt, st, state, solver = 'coarse_propagator', realspace = False)
+            #    output = RSWE_direct.solve(control, expInt, st, state, solver = 'coarse_propagator', realspace = False)
             #else:
             #    output = RSWE_direct.solve(control, expInt, st, state, solver = 'coarse_propagator_reuse', realspace = False)
             
-            
-            #    if (index !=0 and function==0) or (function == 0 and index == 0): 
-            #        if (iteration not in dict_Nb):
-            #            dict_Nb[iteration] = { }
-            #        dict_Nb[iteration][index] = output
-            #else: 
-            #    if index == 0: print("Using N_bar computation from iteration 7 to compute iteration ",iteration)
-            #    output = dict_Nb[iteration-1][index]
         elif level == 2:
             #control['fine_timestep'] = tstop - tstart
             control['coarse_timestep'] = tstop - tstart
-            recompute_T0_M(app.total_levels,level,.15)
-            #Alternately solve with T0, 2*T0 (for small F three-scale problem)
-            #if (iteration != 0) and (iteration % 2 == 0):
-            #    recompute_T0_M(app.total_levels,level,.15)
-            #output = RSWE_direct.solve(control, expInt, st, state, solver = 'fine_propagator', realspace = False)
+            recompute_T0_M(app.total_levels,level,1.0)
             output = RSWE_direct.solve(control, expInt, st, state, solver = 'coarse_propagator', realspace = False)
-            #if index > 0 and function==0:
-            #    state = expint_SF(state,control['coarse_timestep'])
-            #    output = RSWE_direct.solve(control, expInt, st, state, solver = 'coarse_propagator_no_sf', realspace = False)
-            #else:
-            #    output = RSWE_direct.solve(control, expInt, st, state, solver = 'coarse_propagator', realspace = False)
-            #output = expint_SF(output,control['coarse_timestep'])
-    else:
+
+    else: # If the asymptotic switch HMM_METHOD set to 0, use the fine propagator regardless of level.
         control['fine_timestep'] = tstop - tstart
         output = RSWE_direct.solve(control, expInt, st, state, solver = 'fine_propagator', realspace = False)
 
-    #The below is for timing my_step wall times
-    step_stop_time = time.perf_counter() - step_start_time
-    total_mystep_time += step_stop_time
-    total_mystep_counter += 1
-    if level == 0:
-        lvl0_total_mystep_time += step_stop_time
-        lvl0_total_mystep_counter += 1
-        if (iteration == 10 and index == 0):
-            print("Total Lvl 0 Steps = ",lvl0_total_mystep_counter,", Total Lvl 0 Time = ",lvl0_total_mystep_time,", Average Lvl 0 my_Step time = ",lvl0_total_mystep_time/lvl0_total_mystep_counter)
-    elif level == 1:
-        lvl1_total_mystep_time += step_stop_time
-        lvl1_total_mystep_counter += 1
-        if (iteration == 10 and index == 0):
-            print("Total Lvl 1 Steps = ",lvl1_total_mystep_counter,", Total Lvl 1 Time = ",lvl1_total_mystep_time,", Average Lvl 1 my_Step time = ",lvl1_total_mystep_time/lvl1_total_mystep_counter)
-    if (iteration == 10 and index == 0):
-        print("Total Steps = ",total_mystep_counter,", Total Time = ",total_mystep_time,", Average my_Step time = ",total_mystep_time/total_mystep_counter)
+    #The below is for timing my_step wall times.
+   # step_stop_time = time.perf_counter() - step_start_time
+   # total_mystep_time += step_stop_time
+   # total_mystep_counter += 1
+   # if level == 0:
+   #     lvl0_total_mystep_time += step_stop_time
+   #     lvl0_total_mystep_counter += 1
+   #     if (iteration == 10 and index == 0):
+   #         print("Total Lvl 0 Steps = ",lvl0_total_mystep_counter,", Total Lvl 0 Time = ",lvl0_total_mystep_time,", Average Lvl 0 my_Step time = ",lvl0_total_mystep_time/lvl0_total_mystep_counter)
+   # elif level == 1:
+   #     lvl1_total_mystep_time += step_stop_time
+   #     lvl1_total_mystep_counter += 1
+   #     if (iteration == 10 and index == 0):
+   #         print("Total Lvl 1 Steps = ",lvl1_total_mystep_counter,", Total Lvl 1 Time = ",lvl1_total_mystep_time,", Average Lvl 1 my_Step time = ",lvl1_total_mystep_time/lvl1_total_mystep_counter)
+   # if (iteration == 10 and index == 0):
+   #     print("Total Steps = ",total_mystep_counter,", Total Time = ",total_mystep_time,", Average my_Step time = ",total_mystep_time/total_mystep_counter)
 
 
     ##
@@ -407,6 +385,7 @@ cdef int my_access(braid_App app, braid_Vector u, braid_AccessStatus status):
     v2_arr = np.asarray(v2_view)
     h_arr = np.asarray(h_view)
 
+    # The below lines print out all space-time information in real space to .txt files.
     #np.savetxt('cyclobraid.out-v1-'+str(index),st.inverse_fft(v1_arr[:]).real)
     #np.savetxt('cyclobraid.out-v2-'+str(index),st.inverse_fft(v2_arr[:]).real) 
     #np.savetxt('cyclobraid.out-h-'+str(index), st.inverse_fft(h_arr[:]).real)
@@ -452,7 +431,7 @@ cdef int my_bufunpack(braid_App app, void *buffer, braid_Vector *u_ptr, braid_Bu
     u_ptr[0] = u
     return 0
 
-def braid_init_py(Nt,tf,FCF,m,maxiter,maxlevels,skip,avg_lvl_switch,l2_coeff_t0):
+def braid_init_py(Nt,tf,FCF,m,maxiter,maxlevels):
     cdef braid_Core core
     cdef my_App *app
     cdef double tstart
@@ -482,10 +461,6 @@ def braid_init_py(Nt,tf,FCF,m,maxiter,maxlevels,skip,avg_lvl_switch,l2_coeff_t0)
     app = <my_App*>PyMem_Malloc(sizeof(my_App))
     app.rank = rank
 
-    app.first_averaging_level = avg_lvl_switch
-    print("Time-averaging in effect from Level "+str(avg_lvl_switch)+" and coarser (Where 0 is the finest grid)")
-    print("Level 2 T0 coefficient = ",l2_coeff_t0)
-    app.T0_coeff_lvl2 = l2_coeff_t0
     app.total_levels = maxlevels
 
     # Update final_time value so Cyclops and Braid agree
@@ -498,8 +473,8 @@ def braid_init_py(Nt,tf,FCF,m,maxiter,maxlevels,skip,avg_lvl_switch,l2_coeff_t0)
     braid_Init(comm.ob_mpi, comm.ob_mpi, tstart, tstop, ntime, app, my_step, my_init, my_clone, my_free, my_sum, my_norm, my_access, my_bufsize, my_bufpack, my_bufunpack, &core)
     
     braid_SetMaxLevels(core,maxlevels)
-    braid_SetAbsTol(core,1.0e-20)
-    braid_SetMaxIter(core,11)#maxiter)
+    braid_SetAbsTol(core,1.0e-6)
+    braid_SetMaxIter(core,maxiter)
     for i in range(len(m)):
         braid_SetCFactor(core,i-1,m[i])
     #braid_SetAbsTol(core,0.0)
