@@ -140,8 +140,8 @@ cdef int my_step(braid_App app, braid_Vector ustop, braid_Vector fstop, braid_Ve
         elif level == 1:
             control['coarse_timestep'] = tstop - tstart
             control['index'] = index
-            recompute_T0_M(app.total_levels,level,1.0)
             control['iter'] = iteration
+            recompute_T0_M(app.total_levels,level,1.0)
             output = RSWE_direct.solve(control, expInt, st, state, solver = 'coarse_propagator', realspace = False)
 
             #Alternately solve with T0, 2*T0 (for small F three-scale problem)
@@ -158,6 +158,8 @@ cdef int my_step(braid_App app, braid_Vector ustop, braid_Vector fstop, braid_Ve
         elif level == 2:
             #control['fine_timestep'] = tstop - tstart
             control['coarse_timestep'] = tstop - tstart
+            control['index'] = index
+            control['iter'] = iteration
             recompute_T0_M(app.total_levels,level,1.0)
             output = RSWE_direct.solve(control, expInt, st, state, solver = 'coarse_propagator', realspace = False)
 
