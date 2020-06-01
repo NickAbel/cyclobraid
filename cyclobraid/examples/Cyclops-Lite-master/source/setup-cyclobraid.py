@@ -40,6 +40,8 @@ import os
 #    is in your PYTHONPATH, e.g.,
 # 
 #     export PYTHONPATH="$HOME/.local/lib/python3.7"
+#     or
+#     export PYTHONPATH="$HOME/.local/lib/python3.7/site-packages"
 #
 # 2) Run cyclobraid_driver.py (see README)
 
