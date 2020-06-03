@@ -40,7 +40,7 @@ See the README in the directory 'cyclobraid/examples/Cyclops-Lite-master/source'
                                                                        Cython interface twixt
                                                                        Braid and Cyclops
 
-                                                                    See the README in this 
-                                                                    directory for compiling
-                                                                    and running details
+    See the README in this 
+    directory for compiling
+    and running details
 
