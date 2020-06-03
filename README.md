@@ -18,24 +18,27 @@ See the README in the directory 'cyclobraid/examples/Cyclops-Lite-master/source'
 
 # Directory Structure
 
-[here] -> cyclobraid : Main directory, holds an un-tarred version of Braid.
-                       All the folders here correspond to the normal Braid
-                       directory structure, e.g.,   
-                       [here] -> cyclobraid -> braid, holds the source code for braid
-                       and 
-                       [here] -> cyclobraid -> examples, holds the standard braid examples
+1. [here] -> cyclobraid : Main directory, holds an un-tarred version of Braid.
+                          All the folders here correspond to the normal Braid
+                          directory structure, e.g.,   
+                       
+    1. [here] -> cyclobraid -> braid, holds the source code for braid
+                       
+    and 
+                       
+    2. [here] -> cyclobraid -> examples, holds the standard braid examples
 
-                       The cyclobraid code is written as an "example" of Braid 
+    3. The cyclobraid code is written as an "example" of Braid 
 
 
-[here] -> cyclobraid -> examples -> Cyclops-Lite-Master : Is an un-tarring of Adam Peddles
+2. [here] -> cyclobraid -> examples -> Cyclops-Lite-Master : Is an un-tarring of Adam Peddles
                                                           Cyclops code, modified to work 
                                                           with Braid
 
 
-[here] -> cyclobraid -> examples -> Cyclops-Lite-Master -> source : Holds the cyclobraid 
-                                                                    Cython interface twixt
-                                                                    Braid and Cyclops
+3. [here] -> cyclobraid -> examples -> Cyclops-Lite-Master -> source : Holds the cyclobraid 
+                                                                       Cython interface twixt
+                                                                       Braid and Cyclops
 
                                                                     See the README in this 
                                                                     directory for compiling
