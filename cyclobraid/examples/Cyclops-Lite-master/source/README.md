@@ -2,12 +2,12 @@
 
 Tested to work on Ubuntu 20.04 LTS with:
 
-python3
-cython
-openmpi (or similar)
-mpi4py
-numpy
-scipy
+ - python3
+ - cython
+ - openmpi
+ - mpi4py
+ - numpy
+ - scipy
 
 # Files
 - cyclobraid.pyx        :  Cython interface file
@@ -39,6 +39,22 @@ Or, to use MPI:
 
 # Reproducing data from Masters Thesis
 
-Nick: Can you add runstrings here tah reproduce an entry from each Table in your thesis? 
+Problem-specific parameters for the RSWE are set initially in cyclops_control.py and can be accessed in the control object.
 
+The parameters set in cyclops_control.py are as follows:
+  - Scale separation parameter epsilon is stored in control['epsilon']
+  - Rossby radius of deformation is stored in control['deformation_radius']
+  - Dissipation parameter mu is stored as control['mu']
+  - Other parameters, such as start time (control['start_time']), spatial domain size and resolution (control['Lx'] and control['Nx'], respectively)
+ 
+Other problem-specific parameters using the control object are set in cyclobraid.pyx:
+  - Averaging window size eta and quadrature points M are stored in control['HMM_T0'] and control['HMM_M_bar']. They are set in cyclobraid.pyx and can be recomputed for multilevel or alternating window solves using the function recompute_T0_M() in cyclobraid.pyx
+  - Final time t_f is stored in control['final_time'] and is set by command line argument in braid_init_py() in cyclobraid.pyx.
+ 
+Note that in Cyclobraid, the halting tolerance is specified using the function call braid_SetAbsTol() inside braid_init_py() in cyclobraid.pyx. The tolerance in the control object for Cyclops is not used to determine halting in Cyclobraid.
 
+The behavior of the solve is given in the my_step() function in cyclobraid.pyx. An if statement determines whether to use the fine solver or coarse asymptotic solver depending on the current level that my_step() is being called in. The recompute_T0_M() function can be called to recompute the averaging window parameters eta and M before calling the coarse solver. 
+
+To perform reuse of prior values of asymptotic nonlinear products, the 'coarse_propagator_reuse' function can be called. The coarse_propagator_reuse function calls the strang_splitting_reuse function in RSWE_direct.py which accesses dicts containing nonlinear asymptotic terms computed in prior iterations to return a stale value. Currently, strang_splitting_reuse is set up to use the value from the previous iteration (control['iter']-1), but this can be changed to reuse any extant values in the dicts.
+
+Code for wall timing calls to my_step() is available in my_step().
