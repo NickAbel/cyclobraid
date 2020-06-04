@@ -36,6 +36,14 @@ Or, to use MPI:
 
     $ mpirun -np 8 python3 cyclobraid_driver.py --Nt=50 --tf=1.0  --FCF=0 --m=50 --maxiter=10 --maxlevels=2
 
+# Usage Details
+
+ - Nt        : Coarse grid time pts.
+ - tf        : Final time (initial time set to 0.)
+ - FCF       : Set to 1 for FCF-relaxation, 0 for F-relaxation (as in parareal,) 2 for FCFCF, etc.
+ - m         : coarsening factors. To specify for multilevel, can specify multiple coarsening factors in level order. One --m argument will set the global coarsening factor.
+ - maxiter   : Maximum number of Braid iterations. Pre-empted by halting tolerance.
+ - maxlevels : Number of Braid levels. Set equal to 2, and FCF to 0, for a solve equivalent to parareal.
 
 # Reproducing data from Masters Thesis
 
