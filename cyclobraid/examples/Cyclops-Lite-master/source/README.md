@@ -1,3 +1,5 @@
+# Cyclobraid
+
 # Requirements
 
 Tested to work on Ubuntu 20.04 LTS with:
@@ -38,12 +40,27 @@ Or, to use MPI:
 
 # Usage Details
 
- - Nt        : Coarse grid time pts.
+ - Nt        : Number of time points on the coarsest grid.
  - tf        : Final time (initial time set to 0.)
  - FCF       : Set to 1 for FCF-relaxation, 0 for F-relaxation (as in parareal,) 2 for FCFCF, etc.
- - m         : coarsening factors. To specify for multilevel, can specify multiple coarsening factors in level order. One --m argument will set the global coarsening factor.
+ - m         : Coarsening factors. To specify for multilevel, can specify multiple coarsening factors in level order. Specifying only one --m argument will set a global coarsening factor for all levels.
  - maxiter   : Maximum number of Braid iterations. Pre-empted by halting tolerance.
  - maxlevels : Number of Braid levels. Set equal to 2, and FCF to 0, for a solve equivalent to parareal.
+
+# More Example Runstrings
+
+
+The example given above, shown here:
+
+    $ python3 cyclobraid_driver.py --Nt=50 --tf=1.0 --FCF=0 --m=50 --maxiter=10 --maxlevels=2
+
+Runs a two-level solve with F-relaxation. The time domain is [0,1] with 50 coarse time points, a coarsening factor of 50 hence 2500 fine grid time points, and 10 maximum iterations.
+
+An example multilevel runstring is given by:
+
+    $ python3 cyclobraid_driver.py --Nt=8 --tf=1. --FCF=0 --m=1 --m=4 --m=8 --maxlevels=3 --maxiter=8  
+
+In particular, this gives a three-level time grid hierarchy of [256, 64, 8] time points.
 
 # Reproducing data from Masters Thesis
 
